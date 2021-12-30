@@ -16,23 +16,30 @@ function generateWikipediaTagHtml(args, content){
   const lang = argsHash['lang'] !== undefined ? argsHash['lang'] : 'en';
   const baseUrl = `https://${lang}.wikipedia.org`;
 
-  const sentenceParam = argsHash['sentences'] !== undefined ? `&exsentences=${argsHash['sentences']}` : ''
-  const url = `${baseUrl}/w/api.php?action=query&origin=*&prop=extracts${sentenceParam}&format=json&exintro=&titles=${title}`;
+  const url = `${baseUrl}/api/rest_v1/page/summary/${title}?redirect=false`;
 
   const tagId = Math.round(Math.random() * 100000);
   const embeddedScript = `
     window.addEventListener('load', function() {
-      $.getJSON('${url}', function(result) {
-        const pages = result.query.pages;
-        const firstPageIndex = Object.keys(pages)[0];
-        const extract = pages[firstPageIndex].extract;
-        $('#${tagId}').prepend(extract);
+      var element = document.getElementById('${tagId}');
+      var req = new XMLHttpRequest();
+      req.addEventListener("load", function() {
+        var result = this.response;
+        const extract = result.extract;
+        element.prepend(extract);
       });
+      req.addEventListener("error", function() {
+        element.prepend('Failed to fetch wikipedia data for "${title}".');
+      });
+      req.open('GET', '${url}');
+      req.responseType = 'json';
+      req.setRequestHeader('accept', 'application/json; charset=utf-8; profile="https://www.mediawiki.org/wiki/Specs/Summary/1.4.2"');
+      req.send();
     });
   `;
   let contentText = `<script>${embeddedScript}</script>`;
   if (argsHash['wikiButton'] === 'true') {
-    contentText += `<p><a href="${baseUrl}/wiki/${title}">Wikipedia</a></p>`;
+    contentText += `<p><a href="${baseUrl}/wiki/${title}">Wikipedia:${title}</a></p>`;
   }
 
   return `<blockquote id='${tagId}'>${contentText}</blockquote>`;
